@@ -59,57 +59,68 @@
     <div class="gif-grid">INSERT_GIF_ELEMENTS</div>
     <script>
       const grid = document.querySelector(".gif-grid");
+
+      // on hover we replace the link to the actual gif
+      // on slow internet connections, this allows us to prioritize loading
+      // the hovered gif. also allows hotlinking
       grid.addEventListener("mouseover", (event) => {
         console.log(event);
         if (event.target.tagName === "IMG")
           event.target.src = `88x31/${event.target.alt}.gif`;
       });
+
+      // array containing image elements and the associated byte length of gif
       const gifs = Array.from(grid.children, (img) => ({
         img,
         length: parseInt(img.dataset.length),
       }));
-      window.gifs = gifs;
+
+      // index of the gif we're currently loading
       let idx = 0;
 
       function consume(reader) {
         const textDecoder = new TextDecoder();
 
-        let remaining = null;
+        // unprocessed chunks
+        let chunks = [];
+        let chunksLength = 0;
 
         const pump = () => {
           return reader.read().then(({ done, value }) => {
             if (done) return;
 
-            const combinedArray = new Uint8Array(
-              (remaining?.length ?? 0) + value.length
-            );
-            if (remaining !== null) combinedArray.set(remaining);
-            combinedArray.set(value, remaining?.length ?? 0);
-            value = combinedArray;
-
-            while (idx < gifs.length && gifs[idx].length <= value.length) {
-              const gif_bytes = value.subarray(0, gifs[idx].length);
+            while (
+              idx < gifs.length &&
+              gifs[idx].length <= chunksLength + value.length
+            ) {
+              const gif_bytes = value.subarray(
+                0,
+                gifs[idx].length - chunksLength
+              );
               const fileReader = new FileReader();
               const img = gifs[idx].img;
               fileReader.addEventListener(
                 "load",
                 () => (img.src = fileReader.result)
               );
+
+              // this is a hack because there's no widespread browser support
+              // for encoding a UInt8Array to base64
               fileReader.readAsDataURL(
-                new Blob([gif_bytes], { type: "image/gif" })
+                new Blob([...chunks, gif_bytes], { type: "image/gif" })
               );
 
-              value = value.subarray(gifs[idx++].length);
+              value = value.subarray(gifs[idx++].length - chunksLength);
+              chunks = [];
+              chunksLength = 0;
             }
-            remaining = value;
 
-            console.log(
-              `received ${value instanceof ArrayBuffer} ${ArrayBuffer.isView(
-                value
-              )} ${value.byteLength} ${value.length} bytes ${idx} ${
-                gifs[idx]?.length
-              }`
-            );
+            // remaining bytes
+            if (value.length) {
+              chunks.push(value);
+              chunksLength += value.length;
+            }
+
             return setTimeout(pump, 0);
           });
         };
@@ -117,7 +128,7 @@
         return pump();
       }
 
-      fetch("gif.data").then((res) => consume(res.body.getReader()));
+      fetch("gif.data").then((response) => consume(response.body.getReader()));
     </script>
   </body>
 </html>
