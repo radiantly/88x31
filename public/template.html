@@ -9,7 +9,7 @@
         border: none;
       }
       body {
-        background-image: url("/images/circuit.gif");
+        background-image: url("images/circuit.gif");
         padding: min(50px, 3vw);
 
         display: flex;
@@ -18,7 +18,7 @@
       }
       .box {
         text-align: center;
-        background-image: url("/images/marble.gif");
+        background-image: url("images/marble.gif");
         background-color: #dcdcdc;
         border: #f4f4f4 ridge 3px;
         max-width: 600px;
@@ -62,7 +62,7 @@
       grid.addEventListener("mouseover", (event) => {
         console.log(event);
         if (event.target.tagName === "IMG")
-          event.target.src = `/88x31/${event.target.alt}.gif`;
+          event.target.src = `88x31/${event.target.alt}.gif`;
       });
       const gifs = Array.from(grid.children, (img) => ({
         img,
@@ -117,7 +117,7 @@
         return pump();
       }
 
-      fetch("/gif.data").then((res) => consume(res.body.getReader()));
+      fetch("gif.data").then((res) => consume(res.body.getReader()));
     </script>
   </body>
 </html>
