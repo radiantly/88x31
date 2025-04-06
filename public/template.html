@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The 88x31 GIF Collection</title>
+    <style type="text/css">
+      a img {
+        border: none;
+      }
+      body {
+        background-image: url("/images/circuit.gif");
+        padding: min(50px, 3vw);
+
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .box {
+        text-align: center;
+        background-image: url("/images/marble.gif");
+        background-color: #dcdcdc;
+        border: #f4f4f4 ridge 3px;
+        max-width: 600px;
+        margin: 0 auto 25px auto;
+        padding: 25px;
+      }
+      .gif-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 88px);
+        grid-auto-rows: 31px;
+        gap: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>The 88x31 GIF Collection</h1>
+
+      <p>
+        <strong
+          >This is a copy of
+          <a href="https://cyber.dabamos.de/88x31/"
+            >https://cyber.dabamos.de/88x31/</a
+          >.</strong
+        >
+      </p>
+      <p>
+        As I was browsing the above site, I noticed that the gifs were taking
+        quite a bit of time to load, mostly owing to latency and the sheer
+        number of requests that were being made. I then wondered—what if all the
+        gifs were merged into a single file, so only one request would need to
+        be made? And well, here's the result.
+      </p>
+
+      <p><small>Last updated: 2023/12/13</small></p>
+    </div>
+    <hr />
+    <div class="gif-grid">INSERT_GIF_ELEMENTS</div>
+    <script>
+      const grid = document.querySelector(".gif-grid");
+      grid.addEventListener("mouseover", (event) => {
+        console.log(event);
+        if (event.target.tagName === "IMG")
+          event.target.src = `/88x31/${event.target.alt}.gif`;
+      });
+      const gifs = Array.from(grid.children, (img) => ({
+        img,
+        length: parseInt(img.dataset.length),
+      }));
+      window.gifs = gifs;
+      let idx = 0;
+
+      function consume(reader) {
+        const textDecoder = new TextDecoder();
+
+        let remaining = null;
+
+        const pump = () => {
+          return reader.read().then(({ done, value }) => {
+            if (done) return;
+
+            const combinedArray = new Uint8Array(
+              (remaining?.length ?? 0) + value.length
+            );
+            if (remaining !== null) combinedArray.set(remaining);
+            combinedArray.set(value, remaining?.length ?? 0);
+            value = combinedArray;
+
+            while (idx < gifs.length && gifs[idx].length <= value.length) {
+              const gif_bytes = value.subarray(0, gifs[idx].length);
+              const fileReader = new FileReader();
+              const img = gifs[idx].img;
+              fileReader.addEventListener(
+                "load",
+                () => (img.src = fileReader.result)
+              );
+              fileReader.readAsDataURL(
+                new Blob([gif_bytes], { type: "image/gif" })
+              );
+
+              value = value.subarray(gifs[idx++].length);
+            }
+            remaining = value;
+
+            console.log(
+              `received ${value instanceof ArrayBuffer} ${ArrayBuffer.isView(
+                value
+              )} ${value.byteLength} ${value.length} bytes ${idx} ${
+                gifs[idx]?.length
+              }`
+            );
+            return setTimeout(pump, 0);
+          });
+        };
+
+        return pump();
+      }
+
+      fetch("/gif.data").then((res) => consume(res.body.getReader()));
+    </script>
+  </body>
+</html>
